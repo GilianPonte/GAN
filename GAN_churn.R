@@ -7,6 +7,7 @@ setwd("C:/Users/Gilia/Dropbox/RUG - MSc Marketing/Thesis/data")
 ## read data
 churn <- read.csv2("churn.csv", stringsAsFactors = F)
 
+
 ## delete not numeric data
 churn$AreaCode <- NULL
 churn$Phone <- NULL
