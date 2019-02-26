@@ -2,8 +2,6 @@ rm(list=ls())
 library(keras)
 use_implementation("tensorflow")
 
-setwd("C:/Users/Gilia/Dropbox/RUG - MSc Marketing/Thesis/data")
-
 ## read data
 churn <- read.csv2("churn.csv", stringsAsFactors = F)
 
@@ -26,7 +24,7 @@ dim(churn)
 churn <- as.matrix(churn)
 
 churn <- array_reshape(churn, c(3333,1,1,18))
-hist(churn[,15])
+hist(churn[,,,15])
 
 ## generator
 latent_dim = 18
