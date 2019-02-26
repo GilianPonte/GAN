@@ -50,9 +50,6 @@ generator_output <- generator_input %>%
   layer_conv_2d(filters = 18, kernel_size = 5, 
                 padding = "same") %>% 
   layer_activation_leaky_relu() %>% 
-  layer_conv_2d(filters = 18, kernel_size = 5, 
-                padding = "same") %>% 
-  layer_activation_leaky_relu() %>% 
   
   # Produce a 32x32 1-channel feature map
   layer_conv_2d(filters = z_dim, kernel_size = 7,
@@ -213,7 +210,7 @@ for (step in 1:iterations) {
 
 ## did our model converge?
 library(ggplot2)
-plot <- ggplot(losses, aes(x = 1:10000, y = a_loss)) + geom_line()
-plot + geom_line(aes(x = 1:10000, y = d_loss, color = "d_loss"))
+plot <- ggplot(losses, aes(x = 1:10000, y = d_loss)) + geom_line()
+plot + geom_line(aes(x = 1:10000, y = a_loss, color = "GAN loss"))
 
        
