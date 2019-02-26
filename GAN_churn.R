@@ -4,38 +4,78 @@ use_implementation("tensorflow")
 
 setwd("C:/Users/Gilia/Dropbox/RUG - MSc Marketing/Thesis/data")
 
+## read data
 churn <- read.csv2("churn.csv", stringsAsFactors = F)
+
+## delete not numeric data
 churn$AreaCode <- NULL
 churn$Phone <- NULL
 
+## make all data numeric
 library(dplyr)
 churn <- mutate_all(churn, .funs = as.numeric)
 
+## normalize data
 for(i in 1:dim(churn)[-1]){
   churn[,i] <- (churn[,i] - mean(churn[,i])) / sd(churn[,i])
   print(i)
 }
 
 dim(churn)
-str(churn)
+churn <- as.matrix(churn)
 
-generator_input <- layer_input(batch_shape = c(dim(churn)))
+churn <- array_reshape(churn, c(3333,18))
+hist(churn[,15])
 
+## generator
+latent_dim = 18
+channels <- 18
+
+generator_input <- layer_input(shape = c(latent_dim))
 generator_output <- generator_input %>% 
-  layer_dense(units = 512) %>%
-  layer_activation_leaky_relu() %>%
-  layer_dense(units = 14, activation = "tanh")
-
+  
+  # First, transform the input into a 16x16 128-channels feature map
+  layer_dense(units = 3333 * 18) %>%
+  layer_activation_leaky_relu() %>% 
+  layer_reshape(target_shape = c(1,3333,18)) %>% 
+  
+  # Then, add a convolution layer
+  layer_conv_2d(filters = 18, kernel_size = 5, 
+                padding = "same") %>% 
+  layer_activation_leaky_relu() %>% 
+  
+  # Upsample to 32x32
+  layer_conv_2d_transpose(filters = 18, kernel_size = 4, 
+                          strides = 1, padding = "same") %>% 
+  layer_activation_leaky_relu() %>% 
+  
+  # Few more conv layers
+  layer_conv_2d(filters = 18, kernel_size = 5, 
+                padding = "same") %>% 
+  layer_activation_leaky_relu() %>% 
+  layer_conv_2d(filters = 18, kernel_size = 5, 
+                padding = "same") %>% 
+  layer_activation_leaky_relu() %>% 
+  
+  # Produce a 32x32 1-channel feature map
+  layer_conv_2d(filters = channels, kernel_size = 7,
+                activation = "tanh", padding = "same")
 generator <- keras_model(generator_input, generator_output)
 summary(generator)
 
 
 # Discriminator -----------------------------------------------------------
-discriminator_input <- layer_input(batch_shape = c(6666,14))
-
+discriminator_input <- layer_input(shape = dim(churn))
 discriminator_output <- discriminator_input %>% 
-  layer_dense(units = 64) %>% 
-  layer_activation_leaky_relu() %>%
+  layer_conv_2d(filters = 128, kernel_size = 3) %>% 
+  layer_activation_leaky_relu() %>% 
+  layer_conv_2d(filters = 128, kernel_size = 4, strides = 2) %>% 
+  layer_activation_leaky_relu() %>% 
+  layer_conv_2d(filters = 128, kernel_size = 4, strides = 2) %>% 
+  layer_activation_leaky_relu() %>% 
+  layer_conv_2d(filters = 128, kernel_size = 4, strides = 2) %>% 
+  layer_activation_leaky_relu() %>% 
+  layer_flatten() %>%
   # One dropout layer - important trick!
   layer_dropout(rate = 0.4) %>%  
   # Classification layer
@@ -146,21 +186,10 @@ for (step in 1:iterations) {
     generated_data <- as.data.frame(generated_data)
     colnames(generated_data) <- colnames(churn)
     
-    generated_data$DayMins <- (generated_data$DayMins + mean(churn$DayMins)) * sd(churn$DayMins)
-    generated_data$DayCalls <- (generated_data$DayCalls + mean(churn$DayCalls)) * sd(churn$DayCalls)
-    generated_data$DayCharge <- (generated_data$DayCharge + mean(churn$DayCharge)) * sd(churn$DayCharge)
-    generated_data$EveMins <- (generated_data$EveMins + mean(churn$EveMins)) * sd(churn$EveMins)
-    generated_data$EveCalls <- (generated_data$EveCalls + mean(churn$EveCalls)) * sd(churn$EveCalls)
-    generated_data$EveCharge <- (generated_data$EveCharge + mean(churn$EveCharge)) * sd(churn$EveCharge)
-    generated_data$NightMins <- (generated_data$NightMins + mean(churn$NightMins)) * sd(churn$NightMins)
-    generated_data$NightCalls <- (generated_data$NightCalls + mean(churn$NightCalls)) * sd(churn$NightCalls)
-    generated_data$NightCharge <- (generated_data$NightCharge + mean(churn$NightCharge)) * sd(churn$NightCharge)
-    generated_data$IntlMins <- (generated_data$IntlMins + mean(churn$IntlMins)) * sd(churn$IntlMins)
-    generated_data$IntlCalls <- (generated_data$IntlCalls + mean(churn$IntlCalls)) * sd(churn$IntlCalls)
-    generated_data$IntlCharge <- (generated_data$IntlCharge + mean(churn$IntlCharge)) * sd(churn$IntlCharge)
-    generated_data$CustServCalls <- (generated_data$CustServCalls + mean(churn$CustServCalls)) * sd(churn$CustServCalls)
-    generated_data$Churn <- (generated_data$Churn + mean(churn$Churn)) * sd(churn$Churn)
-    
+    for(i in 1:dim(churn)[-1]){
+      generated_data[,i] <- (churn[,i] + mean(churn[,i])) * sd(churn[,i])
+      print(i)
+    }
     # Saves one generated data
     write.csv(generated_data, file = paste0("generated_churn_data", step,".csv"), row.names = F)
     
