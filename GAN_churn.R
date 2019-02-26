@@ -212,5 +212,3 @@ for (step in 1:iterations) {
 library(ggplot2)
 plot <- ggplot(losses, aes(x = 1:10000, y = d_loss)) + geom_line()
 plot + geom_line(aes(x = 1:10000, y = a_loss, color = "GAN loss"))
-
-       
