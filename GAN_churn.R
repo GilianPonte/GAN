@@ -113,7 +113,7 @@ gan_optimizer <- optimizer_rmsprop(
 )
 gan %>% compile(
   optimizer = gan_optimizer, 
-  loss = "kullback_leibler_divergence"
+  loss = "binary_crossentropy"
 )
 
 summary(gan)
