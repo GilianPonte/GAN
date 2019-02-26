@@ -125,6 +125,9 @@ batch_size <- 20
 save_dir <- "gan_churn"
 dir.create(save_dir)
 
+## dataframe to store losses
+losses <- data.frame(a_loss = NA, d_loss = rep(NA,iterations))
+
 # Start the training loop
 start <- 1
 for (step in 1:iterations) {
@@ -153,6 +156,8 @@ for (step in 1:iterations) {
   
   # Trains the discriminator
   d_loss <- discriminator %>% train_on_batch(x = combined_data, y = labels)
+  losses[step,1] <- d_loss
+  
 
   # Samples random points in the latent space
   random_latent_vectors <- matrix(rnorm(batch_size * latent_dim), 
@@ -166,6 +171,7 @@ for (step in 1:iterations) {
     random_latent_vectors, 
     misleading_targets
   )
+  losses[step,2] <- a_loss
   
   start <- start + batch_size
   if (start > (nrow(churn) - batch_size))
@@ -182,27 +188,34 @@ for (step in 1:iterations) {
     cat("adversarial loss:", a_loss, "\n")
     generated_data <- as.data.frame(generated_data)
     
+    ## read old data for denormalization
     churn2 <- read.csv2("churn.csv", stringsAsFactors = F)
+    
     ## delete not numeric data
     churn2$AreaCode <- NULL
     churn2$Phone <- NULL
     
+    ## give the right column names
     colnames(generated_data) <- colnames(churn2)
     
     ## make all data numeric
     library(dplyr)
     churn2 <- mutate_all(churn2, .funs = as.numeric)
     dim(generated_data)
+    
+    ## denormalize data again
     for(i in 1:18){
       generated_data[i] <- (generated_data[i] + mean(churn2[,i])) * sd(churn2[,i])
-      print(i)
     }
+    
     # Saves one generated data
     write.csv(generated_data, file = paste0("generated_churn_data", step,".csv"), row.names = F)
-    
-
   }
 }
 
+## did our model converge?
+library(ggplot2)
+plot <- ggplot(losses, aes(x = 1:10000, y = a_loss)) + geom_line()
+plot + geom_line(aes(x = 1:10000, y = d_loss, color = "d_loss"))
 
-
+       
