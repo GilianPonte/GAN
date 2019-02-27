@@ -1,5 +1,8 @@
 rm(list=ls())
 library(keras)
+library(ggplot2)
+library(dplyr)
+
 use_implementation("tensorflow")
 
 ## read data
@@ -11,7 +14,6 @@ churn$AreaCode <- NULL
 churn$Phone <- NULL
 
 ## make all data numeric
-library(dplyr)
 churn <- mutate_all(churn, .funs = as.numeric)
 
 ## normalize data
@@ -61,12 +63,6 @@ summary(generator)
 # Discriminator -----------------------------------------------------------
 discriminator_input <- layer_input(shape = c(x_dim,y_dim,z_dim))
 discriminator_output <- discriminator_input %>% 
-  layer_conv_2d(filters = 18, kernel_size = 1) %>% 
-  layer_activation_leaky_relu() %>% 
-  layer_conv_2d(filters = 18, kernel_size = 1, strides = 1) %>% 
-  layer_activation_leaky_relu() %>% 
-  layer_conv_2d(filters = 18, kernel_size = 1, strides = 1) %>% 
-  layer_activation_leaky_relu() %>% 
   layer_conv_2d(filters = 18, kernel_size = 1, strides = 1) %>% 
   layer_activation_leaky_relu() %>% 
   layer_flatten() %>%
@@ -115,7 +111,7 @@ gan %>% compile(
 
 summary(gan)
 
-iterations <- 10000
+iterations <- 50000
 batch_size <- 20
 save_dir <- "gan_churn"
 dir.create(save_dir)
@@ -194,7 +190,6 @@ for (step in 1:iterations) {
     colnames(generated_data) <- colnames(churn2)
     
     ## make all data numeric
-    library(dplyr)
     churn2 <- mutate_all(churn2, .funs = as.numeric)
     dim(generated_data)
     
@@ -204,11 +199,12 @@ for (step in 1:iterations) {
     }
     
     # Saves one generated data
-    write.csv(generated_data, file = paste0("generated_churn_data", step,".csv"), row.names = F)
+    write.csv(generated_data, file = paste0("gan_churn/generated_churn_data", step,".csv"), row.names = F)
+    plot <- ggplot(losses, aes(x = 1:iterations, y = d_loss)) + geom_line()
+    plot + geom_line(aes(x = 1:iterations, y = a_loss, color = "GAN loss"))
   }
 }
 
 ## did our model converge?
-library(ggplot2)
 plot <- ggplot(losses, aes(x = 1:10000, y = d_loss)) + geom_line()
 plot + geom_line(aes(x = 1:10000, y = a_loss, color = "GAN loss"))
