@@ -54,21 +54,28 @@ generator_output <- generator_input %>%
   layer_conv_2d(filters = z_dim, kernel_size = 7,
                 activation = "tanh", padding = "same")
 generator <- keras_model(generator_input, generator_output)
+
+
+generator %>% compile(
+  optimizer = optimizer_adam,
+  loss = -"binary_crossentropy"
+)
+
 summary(generator)
 
 
 # Discriminator -----------------------------------------------------------
 discriminator_input <- layer_input(shape = c(x_dim,y_dim,z_dim))
 discriminator_output <- discriminator_input %>% 
-  layer_conv_2d(filters = 9, kernel_size = 1, strides = 9) %>% 
+  layer_conv_2d(filters = 18, kernel_size = 1, strides = 9) %>% 
   layer_activation_leaky_relu() %>%
-  layer_conv_2d(filters = 9, kernel_size = 1, strides = 9) %>% 
+  layer_conv_2d(filters = 18, kernel_size = 1, strides = 9) %>% 
   layer_activation_leaky_relu() %>%
-  layer_conv_2d(filters = 9, kernel_size = 1, strides = 9) %>% 
+  layer_conv_2d(filters = 18, kernel_size = 1, strides = 9) %>% 
   layer_activation_leaky_relu() %>%
   layer_flatten() %>%
   # One dropout layer - important trick!
-  layer_dropout(rate = 0.5) %>%  
+  layer_dropout(rate = 0.4) %>%  
   # Classification layer
   layer_dense(units = 1, activation = "sigmoid")
 
@@ -101,7 +108,7 @@ gan_output <- discriminator(generator(gan_input))
 gan <- keras_model(gan_input, gan_output)
 
 gan_optimizer <- optimizer_rmsprop(
-  lr = 0.0004, 
+  lr = 0.00004, 
   clipvalue = 1.0, 
   decay = 1e-8
 )
