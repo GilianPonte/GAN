@@ -55,9 +55,14 @@ generator_output <- generator_input %>%
                 activation = "tanh", padding = "same")
 generator <- keras_model(generator_input, generator_output)
 
+generator_optimizer <- optimizer_rmsprop( 
+  lr = 0.00005, 
+  clipvalue = 1.0,
+  decay = 1e-8
+)
 
 generator %>% compile(
-  optimizer = optimizer_adam,
+  optimizer = generator_optimizer,
   loss = -"binary_crossentropy"
 )
 
@@ -211,5 +216,20 @@ for (step in 1:iterations) {
 }
 
 ## did our model converge?
-plot <- ggplot(losses, aes(x = 1:iterations, y = d_loss)) + geom_line()
-plot + geom_line(aes(x = 1:iterations, y = a_loss, color = "GAN loss"))
+plot <- ggplot(losses, aes(x = 1:iterations, y = d_loss)) + geom_smooth()
+plot + geom_smooth(aes(x = 1:iterations, y = a_loss, color = "GAN loss"))
+
+
+## generate data with the generator
+random_latent_vectors <- matrix(rnorm(batch_size * latent_dim), 
+                                nrow = batch_size, ncol = latent_dim)
+
+generated <- generator %>% predict(random_latent_vectors)
+
+generated <- as.data.frame(generated)
+for(i in 1:18){
+  generated[i] <- (generated[i] + mean(churn2[,i])) * sd(churn2[,i])
+}
+
+colnames(generated) <- colnames(churn2)
+generated
