@@ -80,7 +80,7 @@ summary(discriminator)
 # To stabilize training, we use learning rate decay
 # and gradient clipping (by value) in the optimizer.
 discriminator_optimizer <- optimizer_rmsprop( 
-  lr = 0.0001, 
+  lr = 0.00005, 
   clipvalue = 1.0,
   decay = 1e-8
 )
@@ -204,5 +204,5 @@ for (step in 1:iterations) {
 }
 
 ## did our model converge?
-plot <- ggplot(losses, aes(x = 1:iterations, y = d_loss)) + geom_smooth()
-plot + geom_smooth(aes(x = 1:iterations, y = a_loss, color = "GAN loss"))
+plot <- ggplot(losses, aes(x = 1:iterations, y = d_loss)) + geom_line()
+plot + geom_line(aes(x = 1:iterations, y = a_loss, color = "GAN loss"))
