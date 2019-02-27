@@ -42,17 +42,14 @@ generator_output <- generator_input %>%
   layer_dense(units = 1*1*18) %>%
   layer_activation_leaky_relu() %>% 
   layer_reshape(target_shape = c(1, 1, 18)) %>% 
-  
   # Then, add a convolution layer
   layer_conv_2d(filters = 18, kernel_size = 5, 
                 padding = "same") %>% 
   layer_activation_leaky_relu() %>% 
-  
   # Few more conv layers
   layer_conv_2d(filters = 18, kernel_size = 5, 
                 padding = "same") %>% 
   layer_activation_leaky_relu() %>% 
-  
   # Produce a 32x32 1-channel feature map
   layer_conv_2d(filters = z_dim, kernel_size = 7,
                 activation = "tanh", padding = "same")
@@ -63,11 +60,15 @@ summary(generator)
 # Discriminator -----------------------------------------------------------
 discriminator_input <- layer_input(shape = c(x_dim,y_dim,z_dim))
 discriminator_output <- discriminator_input %>% 
-  layer_conv_2d(filters = 18, kernel_size = 1, strides = 1) %>% 
-  layer_activation_leaky_relu() %>% 
+  layer_conv_2d(filters = 9, kernel_size = 1, strides = 9) %>% 
+  layer_activation_leaky_relu() %>%
+  layer_conv_2d(filters = 9, kernel_size = 1, strides = 9) %>% 
+  layer_activation_leaky_relu() %>%
+  layer_conv_2d(filters = 9, kernel_size = 1, strides = 9) %>% 
+  layer_activation_leaky_relu() %>%
   layer_flatten() %>%
   # One dropout layer - important trick!
-  layer_dropout(rate = 0.4) %>%  
+  layer_dropout(rate = 0.5) %>%  
   # Classification layer
   layer_dense(units = 1, activation = "sigmoid")
 
@@ -79,7 +80,7 @@ summary(discriminator)
 # To stabilize training, we use learning rate decay
 # and gradient clipping (by value) in the optimizer.
 discriminator_optimizer <- optimizer_rmsprop( 
-  lr = 0.0008, 
+  lr = 0.0001, 
   clipvalue = 1.0,
   decay = 1e-8
 )
@@ -111,7 +112,7 @@ gan %>% compile(
 
 summary(gan)
 
-iterations <- 50000
+iterations <- 10000
 batch_size <- 20
 save_dir <- "gan_churn"
 dir.create(save_dir)
@@ -144,7 +145,6 @@ for (step in 1:iterations) {
   # Adds random noise to the labels -- an important trick!
   labels <- labels + (0.5 * array(runif(prod(dim(labels))),
                                   dim = dim(labels)))
-  
   # Trains the discriminator
   d_loss <- discriminator %>% train_on_batch(x = combined_data, y = labels)
   losses[step,1] <- d_loss
@@ -199,12 +199,10 @@ for (step in 1:iterations) {
     }
     
     # Saves one generated data
-    write.csv(generated_data, file = paste0("gan_churn/generated_churn_data", step,".csv"), row.names = F)
-    plot <- ggplot(losses, aes(x = 1:iterations, y = d_loss)) + geom_line()
-    plot + geom_line(aes(x = 1:iterations, y = a_loss, color = "GAN loss"))
-  }
+    #write.csv(generated_data, file = paste0("gan_churn/generated_churn_data", step,".csv"), row.names = F)
+    }
 }
 
 ## did our model converge?
-plot <- ggplot(losses, aes(x = 1:10000, y = d_loss)) + geom_line()
-plot + geom_line(aes(x = 1:10000, y = a_loss, color = "GAN loss"))
+plot <- ggplot(losses, aes(x = 1:iterations, y = d_loss)) + geom_smooth()
+plot + geom_smooth(aes(x = 1:iterations, y = a_loss, color = "GAN loss"))
