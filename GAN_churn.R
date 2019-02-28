@@ -3,7 +3,6 @@ library(keras)
 library(ggplot2)
 library(dplyr)
 
-use_implementation("tensorflow")
 
 lr = 1e-4
 
