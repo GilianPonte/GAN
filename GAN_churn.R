@@ -3,18 +3,9 @@ library(keras)
 library(ggplot2)
 library(dplyr)
 
-## settings
-iterations <- 10000
-batch_size <- 50
-save_dir <- "gan_churn"
-dir.create(save_dir)
-lr = 1e-4
-
 ## read data
 churn <- read.csv2("churn.csv", stringsAsFactors = F)
 
-
-## delete not numeric data
 churn$AreaCode <- NULL
 churn$Phone <- NULL
 
@@ -30,11 +21,19 @@ for(i in 1:dim(churn)[-1]){
 dim(churn)
 churn <- as.matrix(churn)
 
-churn <- array_reshape(churn, c(3333,1,1,18))
+churn <- array_reshape(churn, c(3333,1,1,dim(churn)[2]))
 hist(churn[,,,15])
 
-## generator
-latent_dim = 18
+
+## settings
+# Adam parameters suggested in https://arxiv.org/abs/1511.06434
+beta_1 = .5
+iterations <- 100000
+batch_size <- 20
+save_dir <- "gan_churn"
+dir.create(save_dir)
+lr = 1e-4
+latent_dim = dim(churn)[4]
 
 x_dim = 1
 y_dim = 1
@@ -63,7 +62,8 @@ generator <- keras_model(generator_input, generator_output)
 generator_optimizer <- optimizer_adam( 
   lr = lr, 
   clipvalue = 1.0,
-  decay = 1e-8
+  decay = 1e-8,
+  beta_1 = .5
 )
 
 generator %>% compile(
@@ -78,7 +78,9 @@ summary(generator)
 discriminator_input <- layer_input(shape = c(x_dim,y_dim,z_dim))
 discriminator_output <- discriminator_input %>% 
   layer_conv_2d(filters = 18, kernel_size = 1, strides = 9) %>% 
-  layer_activation_leaky_relu() %>%  layer_conv_2d(filters = 18, kernel_size = 1, strides = 9) %>% 
+  layer_activation_leaky_relu() %>%  
+  layer_dropout(rate = 0.4) %>%  
+  layer_conv_2d(filters = 18, kernel_size = 1, strides = 9) %>% 
   layer_activation_leaky_relu() %>%
   layer_flatten() %>%
   # One dropout layer - important trick!
@@ -96,7 +98,8 @@ summary(discriminator)
 discriminator_optimizer <- optimizer_adam( 
   lr = lr, 
   clipvalue = 1.0,
-  decay = 1e-8
+  decay = 1e-8,
+  beta_1 = .5
 )
 
 discriminator %>% compile(
@@ -108,16 +111,17 @@ discriminator %>% compile(
 # (will only apply to the `gan` model)
 freeze_weights(discriminator)
 
-gan_input <- layer_input(batch_shape = c(batch_size,18))
+gan_input <- layer_input(batch_shape = c(batch_size,latent_dim))
 
 gan_output <- discriminator(generator(gan_input))
 
 gan <- keras_model(gan_input, gan_output)
 
-gan_optimizer <- optimizer_rmsprop(
+gan_optimizer <- optimizer_adam(
   lr = 0.00004, 
   clipvalue = 1.0, 
-  decay = 1e-8
+  decay = 1e-8,
+  beta_1 = .5
 )
 gan %>% compile(
   optimizer = gan_optimizer, 
@@ -178,7 +182,7 @@ for (step in 1:iterations) {
     start <- 1
   
   # Occasionally saves images
-  if (step %% 100 == 0) { 
+  if (step %% 1000 == 0) { 
     
     # Saves model weights
     save_model_weights_hdf5(gan, "gan_churn.h5")
@@ -203,12 +207,12 @@ for (step in 1:iterations) {
     dim(generated_data)
     
     ## denormalize data again
-    for(i in 1:18){
+    for(i in 1:latent_dim){
       generated_data[i] <- (generated_data[i] + mean(churn2[,i])) * sd(churn2[,i])
     }
     
     # Saves one generated data
-    #write.csv(generated_data, file = paste0("gan_churn/generated_churn_data", step,".csv"), row.names = F)
+    write.csv(generated_data, file = paste0("gan_churn/generated_churn_data", step,".csv"), row.names = F)
     }
 }
 
@@ -224,7 +228,7 @@ random_latent_vectors <- matrix(rnorm(batch_size * latent_dim),
 generated <- generator %>% predict(random_latent_vectors)
 
 generated <- as.data.frame(generated)
-for(i in 1:18){
+for(i in 1:latent_dim){
   generated[i] <- (generated[i] + mean(churn2[,i])) * sd(churn2[,i])
 }
 
