@@ -3,8 +3,7 @@ from tensorflow.examples.tutorials.mnist import input_data
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-import os
-
+import os as os
 
 mb_size = 32
 X_dim = 784
@@ -13,6 +12,9 @@ h_dim = 128
 lam = 10
 n_disc = 5
 lr = 1e-4
+
+path = "C:/Users/Gilia/Dropbox/RUG - MSc Marketing/Learning Community Data Science/GAN/GAN"
+os.chdir(path)
 
 mnist = input_data.read_data_sets('../../MNIST_data', one_hot=True)
 

@@ -3,7 +3,11 @@ library(keras)
 library(ggplot2)
 library(dplyr)
 
-
+## settings
+iterations <- 10000
+batch_size <- 50
+save_dir <- "gan_churn"
+dir.create(save_dir)
 lr = 1e-4
 
 ## read data
@@ -74,10 +78,7 @@ summary(generator)
 discriminator_input <- layer_input(shape = c(x_dim,y_dim,z_dim))
 discriminator_output <- discriminator_input %>% 
   layer_conv_2d(filters = 18, kernel_size = 1, strides = 9) %>% 
-  layer_activation_leaky_relu() %>%
-  layer_conv_2d(filters = 18, kernel_size = 1, strides = 9) %>% 
-  layer_activation_leaky_relu() %>%
-  layer_conv_2d(filters = 18, kernel_size = 1, strides = 9) %>% 
+  layer_activation_leaky_relu() %>%  layer_conv_2d(filters = 18, kernel_size = 1, strides = 9) %>% 
   layer_activation_leaky_relu() %>%
   layer_flatten() %>%
   # One dropout layer - important trick!
@@ -107,7 +108,7 @@ discriminator %>% compile(
 # (will only apply to the `gan` model)
 freeze_weights(discriminator)
 
-gan_input <- layer_input(batch_shape = c(20,18))
+gan_input <- layer_input(batch_shape = c(batch_size,18))
 
 gan_output <- discriminator(generator(gan_input))
 
@@ -124,11 +125,6 @@ gan %>% compile(
 )
 
 summary(gan)
-
-iterations <- 10000
-batch_size <- 20
-save_dir <- "gan_churn"
-dir.create(save_dir)
 
 ## dataframe to store losses
 losses <- data.frame(a_loss = NA, d_loss = rep(NA,iterations))
