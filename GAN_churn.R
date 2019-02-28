@@ -5,6 +5,8 @@ library(dplyr)
 
 use_implementation("tensorflow")
 
+lr = 1e-4
+
 ## read data
 churn <- read.csv2("churn.csv", stringsAsFactors = F)
 
@@ -55,15 +57,15 @@ generator_output <- generator_input %>%
                 activation = "tanh", padding = "same")
 generator <- keras_model(generator_input, generator_output)
 
-generator_optimizer <- optimizer_rmsprop( 
-  lr = 0.00005, 
+generator_optimizer <- optimizer_adam( 
+  lr = lr, 
   clipvalue = 1.0,
   decay = 1e-8
 )
 
 generator %>% compile(
   optimizer = generator_optimizer,
-  loss = -"binary_crossentropy"
+  loss = "binary_crossentropy"
 )
 
 summary(generator)
@@ -91,8 +93,8 @@ summary(discriminator)
 
 # To stabilize training, we use learning rate decay
 # and gradient clipping (by value) in the optimizer.
-discriminator_optimizer <- optimizer_rmsprop( 
-  lr = 0.00005, 
+discriminator_optimizer <- optimizer_adam( 
+  lr = lr, 
   clipvalue = 1.0,
   decay = 1e-8
 )
