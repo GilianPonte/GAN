@@ -21,19 +21,20 @@ for(i in 1:dim(churn)[-1]){
 dim(churn)
 churn <- as.matrix(churn)
 
-churn <- array_reshape(churn, c(3333,1,1,dim(churn)[2]))
-hist(churn[,,,15])
+churn <- array_reshape(churn, c(3333,1,dim(churn)[2]))
+hist(churn[,,15])
 
 
 ## settings
 # Adam parameters suggested in https://arxiv.org/abs/1511.06434
 beta_1 = .5
+
 iterations <- 100000
-batch_size <- 20
+batch_size <- 50
 save_dir <- "gan_churn"
 dir.create(save_dir)
 lr = 1e-4
-latent_dim = dim(churn)[4]
+latent_dim = dim(churn)[3]
 
 x_dim = 1
 y_dim = 1
@@ -43,19 +44,19 @@ generator_input <- layer_input(shape = c(latent_dim))
 generator_output <- generator_input %>% 
   
   # First, transform the input into a 16x16 128-channels feature map
-  layer_dense(units = 1*1*18) %>%
+  layer_dense(units = 1*18) %>%
   layer_activation_leaky_relu() %>% 
-  layer_reshape(target_shape = c(1, 1, 18)) %>% 
+  layer_reshape(target_shape = c(1, 18)) %>% 
   # Then, add a convolution layer
-  layer_conv_2d(filters = 18, kernel_size = 5, 
+  layer_conv_1d(filters = 18, kernel_size = 5, 
                 padding = "same") %>% 
   layer_activation_leaky_relu() %>% 
   # Few more conv layers
-  layer_conv_2d(filters = 18, kernel_size = 5, 
+  layer_conv_1d(filters = 18, kernel_size = 5, 
                 padding = "same") %>% 
   layer_activation_leaky_relu() %>% 
   # Produce a 32x32 1-channel feature map
-  layer_conv_2d(filters = z_dim, kernel_size = 7,
+  layer_conv_1d(filters = z_dim, kernel_size = 7,
                 activation = "tanh", padding = "same")
 generator <- keras_model(generator_input, generator_output)
 
@@ -75,12 +76,12 @@ summary(generator)
 
 
 # Discriminator -----------------------------------------------------------
-discriminator_input <- layer_input(shape = c(x_dim,y_dim,z_dim))
+discriminator_input <- layer_input(shape = c(x_dim,z_dim))
 discriminator_output <- discriminator_input %>% 
-  layer_conv_2d(filters = 18, kernel_size = 1, strides = 9) %>% 
+  layer_conv_1d(filters = 18, kernel_size = 1, strides = 9) %>% 
   layer_activation_leaky_relu() %>%  
   layer_dropout(rate = 0.4) %>%  
-  layer_conv_2d(filters = 18, kernel_size = 1, strides = 9) %>% 
+  layer_conv_1d(filters = 18, kernel_size = 1, strides = 9) %>% 
   layer_activation_leaky_relu() %>%
   layer_flatten() %>%
   # One dropout layer - important trick!
@@ -118,7 +119,7 @@ gan_output <- discriminator(generator(gan_input))
 gan <- keras_model(gan_input, gan_output)
 
 gan_optimizer <- optimizer_adam(
-  lr = 0.00004, 
+  lr = lr, 
   clipvalue = 1.0, 
   decay = 1e-8,
   beta_1 = .5
@@ -145,11 +146,11 @@ for (step in 1:iterations) {
   
   # Combines them with real images
   stop <- start + batch_size - 1 
-  real_data <- as.matrix(churn[start:stop,,,])
+  real_data <- as.matrix(churn[start:stop,,])
   rows <- nrow(real_data)
   combined_data <- array(0, dim = c(rows * 2, dim(churn)[-1]))
-  combined_data[1:rows,,,] <- generated_data
-  combined_data[(rows+1):(rows*2),,,] <- real_data
+  combined_data[1:rows,,] <- generated_data
+  combined_data[(rows+1):(rows*2),,] <- real_data
   
   # Assembles labels discriminating real from fake images
   labels <- rbind(matrix(1, nrow = batch_size, ncol = 1),
@@ -204,7 +205,6 @@ for (step in 1:iterations) {
     
     ## make all data numeric
     churn2 <- mutate_all(churn2, .funs = as.numeric)
-    dim(generated_data)
     
     ## denormalize data again
     for(i in 1:latent_dim){
