@@ -198,7 +198,7 @@ for (step in 1:iterations) {
     cat("discriminator loss:", d_loss, "\n")
     cat("adversarial loss:", a_loss, "\n")
     generated_data <- as.data.frame(generated_data)
-    
+    rite.csv(generated_data, file = paste0("gan_churn/generated_churn_data_before_normalization", step,".csv"), row.names = F)
     ## read old data for denormalization
     churn2 <- read.csv2("churn.csv", stringsAsFactors = F)
     
@@ -214,7 +214,7 @@ for (step in 1:iterations) {
     
     ## denormalize data again
     for(i in 1:latent_dim){
-      generated_data[,i] <- 2*(generated_data[,i] - min(churn2[,i]))/(max(churn2[,i]) - min(churn2[,i]))-1
+      generated_data[,i] <- ((generated_data[,i] + min(churn2[,i]))*(max(churn2[,i]) - min(churn2[,i]))/2)+1
     }
     
     # Saves one generated data
