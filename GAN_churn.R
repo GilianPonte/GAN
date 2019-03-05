@@ -112,6 +112,7 @@ discriminator_optimizer <- optimizer_adam(
 discriminator %>% compile(
   optimizer = discriminator_optimizer,
   loss = "binary_crossentropy"
+  metric = "accuracy"
 )
 
 # Set discriminator weights to non-trainable, when training the generator
