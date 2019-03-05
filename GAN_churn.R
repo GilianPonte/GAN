@@ -14,9 +14,11 @@ churn <- mutate_all(churn, .funs = as.numeric)
 
 ## normalize data
 for(i in 1:dim(churn)[-1]){
-  churn[,i] <- (churn[,i] - mean(churn[,i])) / sd(churn[,i])
+  churn[,i] <- 2*(churn[,i] - min(churn[,i]))/(max(churn[,i]) - min(churn[,i]))-1
   print(i)
 }
+
+summary(churn)
 
 dim(churn)
 churn <- as.matrix(churn)
@@ -45,16 +47,18 @@ generator_output <- generator_input %>%
   
   # First, transform the input into a 16x16 128-channels feature map
   layer_dense(units = 1*18) %>%
-  layer_activation_leaky_relu() %>% 
+  layer_activation_leaky_relu(alpha = .2) %>% 
   layer_reshape(target_shape = c(1, 18)) %>% 
   # Then, add a convolution layer
   layer_conv_1d(filters = 18, kernel_size = 5, 
                 padding = "same") %>% 
-  layer_activation_leaky_relu() %>% 
+  layer_activation_leaky_relu(alpha = .2) %>% 
+  layer_batch_normalization(momentum = .8) %>%
   # Few more conv layers
   layer_conv_1d(filters = 18, kernel_size = 5, 
                 padding = "same") %>% 
-  layer_activation_leaky_relu() %>% 
+  layer_activation_leaky_relu(alpha = .2) %>% 
+  layer_batch_normalization(momentum = .8) %>%
   # Produce a 32x32 1-channel feature map
   layer_conv_1d(filters = z_dim, kernel_size = 7,
                 activation = "tanh", padding = "same")
@@ -79,10 +83,12 @@ summary(generator)
 discriminator_input <- layer_input(shape = c(x_dim,z_dim))
 discriminator_output <- discriminator_input %>% 
   layer_conv_1d(filters = 18, kernel_size = 1, strides = 9) %>% 
-  layer_activation_leaky_relu() %>%  
-  layer_dropout(rate = 0.4) %>%  
+  layer_activation_leaky_relu(alpha = .2) %>% 
+  layer_dropout(rate = 0.4) %>%
   layer_conv_1d(filters = 18, kernel_size = 1, strides = 9) %>% 
-  layer_activation_leaky_relu() %>%
+  layer_activation_leaky_relu(alpha = .2) %>%
+  layer_conv_1d(filters = 18, kernel_size = 1, strides = 9) %>% 
+  layer_activation_leaky_relu(alpha = .2) %>%
   layer_flatten() %>%
   # One dropout layer - important trick!
   layer_dropout(rate = 0.4) %>%  
@@ -208,7 +214,7 @@ for (step in 1:iterations) {
     
     ## denormalize data again
     for(i in 1:latent_dim){
-      generated_data[i] <- (generated_data[i] + mean(churn2[,i])) * sd(churn2[,i])
+      generated_data[,i] <- 2*(generated_data[,i] - min(churn2[,i]))/(max(churn2[,i]) - min(churn2[,i]))-1
     }
     
     # Saves one generated data
@@ -229,7 +235,7 @@ generated <- generator %>% predict(random_latent_vectors)
 
 generated <- as.data.frame(generated)
 for(i in 1:latent_dim){
-  generated[i] <- (generated[i] + mean(churn2[,i])) * sd(churn2[,i])
+  generated[i] <- (generated[i] * max(churn2[,i]))
 }
 
 colnames(generated) <- colnames(churn2)
