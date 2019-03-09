@@ -3,6 +3,22 @@ library(keras)
 library(ggplot2)
 library(dplyr)
 
+## settings
+# Adam parameters suggested in https://arxiv.org/abs/1511.06434
+beta_1 = .5
+beta_2 = .9
+
+iterations <- 40000
+batch_size <- 128
+save_dir <- "gan_churn"
+dir.create(save_dir)
+lr = 1e-4
+latent_dim = 18
+
+x_dim = 1
+y_dim = 1
+z_dim = 18
+
 ## read data
 churn <- read.csv2("churn.csv", stringsAsFactors = F)
 
@@ -18,29 +34,15 @@ for(i in 1:dim(churn)[-1]){
   print(i)
 }
 
+
 summary(churn)
 
 dim(churn)
 churn <- as.matrix(churn)
 
 churn <- array_reshape(churn, c(3333,1,dim(churn)[2]))
-hist(churn[,,15])
+hist(churn[,,1])
 
-
-## settings
-# Adam parameters suggested in https://arxiv.org/abs/1511.06434
-beta_1 = .5
-
-iterations <- 100000
-batch_size <- 50
-save_dir <- "gan_churn"
-dir.create(save_dir)
-lr = 1e-4
-latent_dim = dim(churn)[3]
-
-x_dim = 1
-y_dim = 1
-z_dim = 18
 
 generator_input <- layer_input(shape = c(latent_dim))
 generator_output <- generator_input %>% 
@@ -68,7 +70,8 @@ generator_optimizer <- optimizer_adam(
   lr = lr, 
   clipvalue = 1.0,
   decay = 1e-8,
-  beta_1 = .5
+  beta_1 = .5,
+  beta_2 = .9
 )
 
 generator %>% compile(
@@ -82,7 +85,7 @@ summary(generator)
 # Discriminator -----------------------------------------------------------
 discriminator_input <- layer_input(shape = c(x_dim,z_dim))
 discriminator_output <- discriminator_input %>% 
-  layer_conv_1d(filters = 18, kernel_size = 1, strides = 9) %>% 
+  layer_conv_1d(filters = 64, kernel_size = 1, strides = 9) %>% 
   layer_activation_leaky_relu(alpha = .2) %>% 
   layer_dropout(rate = 0.4) %>%
   layer_conv_1d(filters = 18, kernel_size = 1, strides = 9) %>% 
@@ -91,7 +94,7 @@ discriminator_output <- discriminator_input %>%
   layer_activation_leaky_relu(alpha = .2) %>%
   layer_flatten() %>%
   # One dropout layer - important trick!
-  layer_dropout(rate = 0.4) %>%  
+  layer_dropout(rate = 0.5) %>%  
   # Classification layer
   layer_dense(units = 1, activation = "sigmoid")
 
@@ -106,13 +109,13 @@ discriminator_optimizer <- optimizer_adam(
   lr = lr, 
   clipvalue = 1.0,
   decay = 1e-8,
-  beta_1 = .5
+  beta_1 = .5,
+  beta_2 = .9
 )
 
 discriminator %>% compile(
   optimizer = discriminator_optimizer,
   loss = "binary_crossentropy"
-  metric = "accuracy"
 )
 
 # Set discriminator weights to non-trainable, when training the generator
@@ -129,7 +132,8 @@ gan_optimizer <- optimizer_adam(
   lr = lr, 
   clipvalue = 1.0, 
   decay = 1e-8,
-  beta_1 = .5
+  beta_1 = .5,
+  beta_2 = .9
 )
 gan %>% compile(
   optimizer = gan_optimizer, 
@@ -183,6 +187,7 @@ for (step in 1:iterations) {
     random_latent_vectors, 
     misleading_targets
   )
+  
   losses[step,2] <- a_loss
   
   start <- start + batch_size
@@ -193,13 +198,13 @@ for (step in 1:iterations) {
   if (step %% 1000 == 0) { 
     
     # Saves model weights
-    save_model_weights_hdf5(gan, "gan_churn.h5")
+    #save_model_weights_hdf5(gan, "gan_churn.h5")
     
     # Prints metrics
     cat("discriminator loss:", d_loss, "\n")
     cat("adversarial loss:", a_loss, "\n")
     generated_data <- as.data.frame(generated_data)
-    rite.csv(generated_data, file = paste0("gan_churn/generated_churn_data_before_normalization", step,".csv"), row.names = F)
+    write.csv(generated_data, file = paste0("gan_churn/generated_churn_data_before_normalization", step,".csv"), row.names = F)
     ## read old data for denormalization
     churn2 <- read.csv2("churn.csv", stringsAsFactors = F)
     
@@ -236,8 +241,15 @@ generated <- generator %>% predict(random_latent_vectors)
 
 generated <- as.data.frame(generated)
 for(i in 1:latent_dim){
-  generated[i] <- (generated[i] * max(churn2[,i]))
+  generated[i] <- ((generated[i] + min(churn2[,i]))*(max(churn2[,i]) - min(churn2[,i]))/2)-1
 }
 
 colnames(generated) <- colnames(churn2)
 generated
+
+
+churn2$rf <- "real data"
+generated$rf <- "fake data "
+
+test <- rbind(churn2, generated)
+ggplot(test, aes(DayMins, fill = rf)) + geom_density(alpha = 0.2)
