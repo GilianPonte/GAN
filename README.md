@@ -4,3 +4,6 @@
 ![img](https://i.imgur.com/EYucZfn.png)
 
 Comparison between real and fake data of the variable from the churn dataset.
+
+## Thanks to:
+https://github.com/soumith/ganhacks
