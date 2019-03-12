@@ -6,16 +6,16 @@ library(dplyr)
 set.seed(123)
 
 ## settings
-iterations <- 40000
-batch_size <- 128
+iterations <- 30000
+batch_size <- 256
 save_dir <- "gan_churn"
 dir.create(save_dir)
 
 ## model related settings
-latent_dim = 13
+latent_dim = 18
 x_dim = 1
 y_dim = 1
-z_dim = 13
+z_dim = 18
 
 ## Adam parameters suggested in https://arxiv.org/abs/1511.06434
 beta_1 = .5
@@ -31,17 +31,6 @@ churn$Phone <- NULL
 ## make all data numeric
 churn <- mutate_all(churn, .funs = as.numeric)
 
-## check for correlation
-library(GGally)
-ggcorr(churn)
-
-## eliminate highly correlated variables
-churn$VMailMessage <- NULL
-churn$DayCharge <- NULL
-churn$EveCharge <- NULL
-churn$NightCharge <- NULL
-churn$IntlCharge <- NULL
-
 ## normalize data
 for(i in 1:dim(churn)[-1]){
   churn[,i] <- 2*(churn[,i] - min(churn[,i]))/(max(churn[,i]) - min(churn[,i]))-1
@@ -54,8 +43,6 @@ dim(churn)
 churn <- as.matrix(churn)
 
 churn <- array_reshape(churn, c(3333,1,dim(churn)[2]))
-hist(churn[,,1])
-
 
 generator_input <- layer_input(shape = c(latent_dim))
 generator_output <- generator_input %>% 
@@ -225,11 +212,6 @@ for (step in 1:iterations) {
     ## delete not numeric data
     churn2$AreaCode <- NULL
     churn2$Phone <- NULL
-    churn2$VMailMessage <- NULL
-    churn2$DayCharge <- NULL
-    churn2$EveCharge <- NULL
-    churn2$NightCharge <- NULL
-    churn2$IntlCharge <- NULL
     
     ## give the right column names
     colnames(generated_data) <- colnames(churn2)
@@ -239,8 +221,9 @@ for (step in 1:iterations) {
     
     ## denormalize data again
     for(i in 1:latent_dim){
-      generated_data[,i] <- ((generated_data[,i] + min(churn2[,i]))*(max(churn2[,i]) - min(churn2[,i]))/2)+1
+      generated_data[,i] <- (((generated_data[,i] + 1 )/2)*(max(churn2[,i]) - min(churn2[,i])) + min(churn2[,i]))
     }
+    
     
     
     # Saves one generated data
@@ -251,17 +234,3 @@ for (step in 1:iterations) {
 ## did our model converge?
 plot <- ggplot(losses, aes(x = 1:iterations, y = d_loss)) + geom_smooth()
 plot + geom_smooth(aes(x = 1:iterations, y = a_loss, color = "GAN loss"))
-
-
-## generate data with the generator
-random_latent_vectors <- matrix(rnorm(batch_size * latent_dim), 
-                                nrow = batch_size, ncol = latent_dim)
-
-generated <- generator %>% predict(random_latent_vectors)
-generated <- as.data.frame(generated)
-
-for(i in 1:latent_dim){
-  generated[i] <- ((generated[i] + min(churn2[,i]))*(max(churn2[,i]) - min(churn2[,i]))/2)+1
-}
-
-colnames(generated) <- colnames(churn2)
