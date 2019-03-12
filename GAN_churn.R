@@ -3,21 +3,24 @@ library(keras)
 library(ggplot2)
 library(dplyr)
 
-## settings
-# Adam parameters suggested in https://arxiv.org/abs/1511.06434
-beta_1 = .5
-beta_2 = .9
+set.seed(123)
 
+## settings
 iterations <- 40000
 batch_size <- 128
 save_dir <- "gan_churn"
 dir.create(save_dir)
-lr = 1e-4
-latent_dim = 18
 
+## model related settings
+latent_dim = 13
 x_dim = 1
 y_dim = 1
-z_dim = 18
+z_dim = 13
+
+## Adam parameters suggested in https://arxiv.org/abs/1511.06434
+beta_1 = .5
+beta_2 = .9
+lr = 1e-4
 
 ## read data
 churn <- read.csv2("churn.csv", stringsAsFactors = F)
@@ -28,12 +31,29 @@ churn$Phone <- NULL
 ## make all data numeric
 churn <- mutate_all(churn, .funs = as.numeric)
 
+## check for correlation
+library(GGally)
+ggcorr(churn)
+
+## eliminate highly correlated variables
+churn$VMailMessage <- NULL
+churn$DayCharge <- NULL
+churn$EveCharge <- NULL
+churn$NightCharge <- NULL
+churn$IntlCharge <- NULL
+
 ## normalize data
 for(i in 1:dim(churn)[-1]){
   churn[,i] <- 2*(churn[,i] - min(churn[,i]))/(max(churn[,i]) - min(churn[,i]))-1
   print(i)
 }
 
+churn %>%
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_histogram()
 
 summary(churn)
 
@@ -85,7 +105,7 @@ summary(generator)
 # Discriminator -----------------------------------------------------------
 discriminator_input <- layer_input(shape = c(x_dim,z_dim))
 discriminator_output <- discriminator_input %>% 
-  layer_conv_1d(filters = 64, kernel_size = 1, strides = 9) %>% 
+  layer_conv_1d(filters = 512, kernel_size = 1, strides = 9) %>% 
   layer_activation_leaky_relu(alpha = .2) %>% 
   layer_dropout(rate = 0.4) %>%
   layer_conv_1d(filters = 18, kernel_size = 1, strides = 9) %>% 
@@ -118,6 +138,7 @@ discriminator %>% compile(
   loss = "binary_crossentropy"
 )
 
+summary(discriminator)
 # Set discriminator weights to non-trainable, when training the generator
 # (will only apply to the `gan` model)
 freeze_weights(discriminator)
@@ -211,6 +232,11 @@ for (step in 1:iterations) {
     ## delete not numeric data
     churn2$AreaCode <- NULL
     churn2$Phone <- NULL
+    churn2$VMailMessage <- NULL
+    churn2$DayCharge <- NULL
+    churn2$EveCharge <- NULL
+    churn2$NightCharge <- NULL
+    churn2$IntlCharge <- NULL
     
     ## give the right column names
     colnames(generated_data) <- colnames(churn2)
@@ -222,6 +248,7 @@ for (step in 1:iterations) {
     for(i in 1:latent_dim){
       generated_data[,i] <- ((generated_data[,i] + min(churn2[,i]))*(max(churn2[,i]) - min(churn2[,i]))/2)+1
     }
+    
     
     # Saves one generated data
     write.csv(generated_data, file = paste0("gan_churn/generated_churn_data", step,".csv"), row.names = F)
@@ -238,18 +265,10 @@ random_latent_vectors <- matrix(rnorm(batch_size * latent_dim),
                                 nrow = batch_size, ncol = latent_dim)
 
 generated <- generator %>% predict(random_latent_vectors)
-
 generated <- as.data.frame(generated)
+
 for(i in 1:latent_dim){
-  generated[i] <- ((generated[i] + min(churn2[,i]))*(max(churn2[,i]) - min(churn2[,i]))/2)-1
+  generated[i] <- ((generated[i] + min(churn2[,i]))*(max(churn2[,i]) - min(churn2[,i]))/2)+1
 }
 
 colnames(generated) <- colnames(churn2)
-generated
-
-
-churn2$rf <- "real data"
-generated$rf <- "fake data "
-
-test <- rbind(churn2, generated)
-ggplot(test, aes(DayMins, fill = rf)) + geom_density(alpha = 0.2)
