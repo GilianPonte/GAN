@@ -48,13 +48,6 @@ for(i in 1:dim(churn)[-1]){
   print(i)
 }
 
-churn %>%
-  keep(is.numeric) %>% 
-  gather() %>% 
-  ggplot(aes(value)) +
-  facet_wrap(~ key, scales = "free") +
-  geom_histogram()
-
 summary(churn)
 
 dim(churn)
