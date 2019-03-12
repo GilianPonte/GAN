@@ -55,13 +55,20 @@ generated <- mutate_all(generated, .funs = as.numeric)
 colnames(generated) <- colnames(churn2)
 
 ## de-normalize
+#for(i in 1:13){
+#  generated[,i] <- ((generated[,i] + min(churn2[,i]))*(max(churn2[,i]) - min(churn2[,i]))/2)+1
+#}
+
+## de-normalize
 for(i in 1:13){
-  generated[,i] <- ((generated[,i] + min(churn2[,i]))*(max(churn2[,i]) - min(churn2[,i]))/2)+1
+  generated[,i] <- (((generated[,i] + 1 )/2)*(max(churn2[,i]) - min(churn2[,i])) + min(churn2[,i]))
 }
+
 
 churn2$rf <- "real data"
 generated$rf <- "fake data"
 
 test <- rbind(churn2, generated)
-ggplot(test, aes(EveMins, fill = rf)) + geom_density(alpha = .9)
+ggplot(test, aes(AccountLength, fill = rf)) + geom_density(alpha = .9)
 
+summary(generated)
