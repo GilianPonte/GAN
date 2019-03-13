@@ -47,21 +47,21 @@ churn <- array_reshape(churn, c(3333,1,dim(churn)[2]))
 generator_input <- layer_input(shape = c(latent_dim))
 generator_output <- generator_input %>% 
   
-  # First, transform the input into a 16x16 128-channels feature map
+  # Hidden layers
   layer_dense(units = 1*18) %>%
   layer_activation_leaky_relu(alpha = .2) %>% 
   layer_reshape(target_shape = c(1, 18)) %>% 
-  # Then, add a convolution layer
+  # Some convolutional magic
   layer_conv_1d(filters = 18, kernel_size = 5, 
                 padding = "same") %>% 
   layer_activation_leaky_relu(alpha = .2) %>% 
   layer_batch_normalization(momentum = .8) %>%
-  # Few more conv layers
+  # More magic
   layer_conv_1d(filters = 18, kernel_size = 5, 
                 padding = "same") %>% 
   layer_activation_leaky_relu(alpha = .2) %>% 
   layer_batch_normalization(momentum = .8) %>%
-  # Produce a 32x32 1-channel feature map
+  # Output layer aka activation fuction
   layer_conv_1d(filters = z_dim, kernel_size = 7,
                 activation = "tanh", padding = "same")
 generator <- keras_model(generator_input, generator_output)
@@ -100,9 +100,6 @@ discriminator_output <- discriminator_input %>%
 
 discriminator <- keras_model(discriminator_input, discriminator_output)
 
-summary(discriminator)
-
-
 # To stabilize training, we use learning rate decay
 # and gradient clipping (by value) in the optimizer.
 discriminator_optimizer <- optimizer_adam( 
@@ -119,6 +116,7 @@ discriminator %>% compile(
 )
 
 summary(discriminator)
+
 # Set discriminator weights to non-trainable, when training the generator
 # (will only apply to the `gan` model)
 freeze_weights(discriminator)
