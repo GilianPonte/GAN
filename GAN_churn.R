@@ -7,7 +7,7 @@ library(dplyr)
 set.seed(123)
 
 # Settings training loop
-iterations <- 30000
+iterations <- 50000
 batch_size <- 256
 save_dir <- "gan_churn"
 dir.create(save_dir)
